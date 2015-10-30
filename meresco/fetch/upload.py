@@ -33,16 +33,19 @@ from meresco.components.sru import SruUpdateClient
 
 class Upload(object):
     def __init__(self, baseUrl, log, userAgent="Meresco-Fetch Harvester"):
-        _, netloc, path, _, _ = urlsplit(baseUrl)
-        host, port = netloc.split(':', 1) if ':' in netloc else (netloc, 80)
+        if not baseUrl:
+            self._sruUpdateClient = _Ignore()
+        else:
+            _, netloc, path, _, _ = urlsplit(baseUrl)
+            host, port = netloc.split(':', 1) if ':' in netloc else (netloc, 80)
+            self._sruUpdateClient = SruUpdateClient(
+                host=host,
+                port=int(port),
+                path=path,
+                userAgent=userAgent,
+                synchronous=True)
         self._log = log
-        self._sruUpdateClient = SruUpdateClient(
-            host=host,
-            port=int(port),
-            path=path,
-            userAgent=userAgent,
-            synchronous=True)
-        self._log.write("Uploading to: %s\n" % baseUrl)
+        self._log.write("Uploading to: %s\n" % repr(baseUrl))
 
     def uploadRecord(self, identifier, data):
         self._upload(identifier, data)
@@ -57,3 +60,13 @@ class Upload(object):
 
     def _delete(self, identifier):
         consume(self._sruUpdateClient.delete(identifier=identifier))
+
+
+class _Ignore(object):
+    def add(self, **kwargs):
+        return
+        yield
+
+    def delete(self, **kwargs):
+        return
+        yield

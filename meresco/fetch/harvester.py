@@ -104,9 +104,7 @@ class Harvester(Observable):
                 self._saveError()
                 raise
 
-        for identifier in self._events.toBeDeleted():
-            self.do.deleteRecord(identifier=identifier)
-            self._events.markEvent(identifier, delete=True)
+        self._deleteOldRecords()
         self._events.markHarvestReady()
         self._logWrite('Finished harvesting.\n')
 
@@ -136,6 +134,11 @@ class Harvester(Observable):
         self._state.harvestingReady = batch.harvestingReady
         self._state.save()
 
+    def _deleteOldRecords(self):
+        for identifier in self._events.toBeDeleted():
+            self.do.deleteRecord(identifier=identifier)
+            self._events.markEvent(identifier, delete=True)
+
     def _deleteAllRecords(self):
         self._events.markHarvestStart()
         for identifier in self._events.remainingAdds():
@@ -158,9 +161,9 @@ class Harvester(Observable):
     def _waitAWhileAfterError(self):
         if self._state.error:
             self._logWrite('Harvesting in error state since {0}: {1}.\n'.format(self._state.datetime, self._lastError()))
-            self._logWrite('Waiting until {0} seconds have passed.\n'.format(self._errorInterval))
             waitTime = ZuluTime(self._state.datetime).epoch + self._errorInterval - self._state.now().epoch
             if waitTime > 0:
+                self._logWrite('Waiting until {0} seconds have passed.\n'.format(self._errorInterval))
                 sleep(waitTime)  # Note!!
 
     def _lastError(self):

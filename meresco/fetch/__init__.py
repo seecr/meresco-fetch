@@ -1,10 +1,11 @@
 ## begin license ##
 #
-# "Meresco Fetch" is a small frame work to build simple, custom harvesters.
+# "Meresco Fetch" is a small framework to build simple, custom harvesters.
 #
 # Copyright (C) 2015 Koninklijke Bibliotheek (KB) http://www.kb.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
-# Copyright (C) 2015 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2015-2016 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2016 Drents Archief http://www.drentsarchief.nl
 #
 # This file is part of "Meresco Fetch"
 #
@@ -26,3 +27,4 @@
 
 from harvester import Harvester
 from upload import Upload
+from oaipmhdownload import OaiPmhDownload

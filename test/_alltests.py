@@ -6,7 +6,8 @@
 #
 # Copyright (C) 2015 Koninklijke Bibliotheek (KB) http://www.kb.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
-# Copyright (C) 2015 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2015-2016 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2016 Drents Archief http://www.drentsarchief.nl
 #
 # This file is part of "Meresco Fetch"
 #
@@ -26,12 +27,15 @@
 #
 ## end license ##
 
-from seecrdeps import includeParentAndDeps                 #DO_NOT_DISTRIBUTE
-includeParentAndDeps(__file__, scanForDeps=True)           #DO_NOT_DISTRIBUTE
+from os import system                            #DO_NOT_DISTRIBUTE
+system('find .. -name "*.pyc" | xargs rm -f')    #DO_NOT_DISTRIBUTE
+from seecrdeps import includeParentAndDeps       #DO_NOT_DISTRIBUTE
+includeParentAndDeps(__file__, scanForDeps=True) #DO_NOT_DISTRIBUTE
 
 from unittest import main
 
 from harvesttest import HarvestTest
+from oaipmhdownloadtest import OaiPmhDownloadTest
 
 
 if __name__ == "__main__":

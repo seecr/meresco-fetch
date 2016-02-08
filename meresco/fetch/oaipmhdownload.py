@@ -79,6 +79,7 @@ class _Batch(BatchProtocol):
         self.repositoryGroupId = currentRepository.get('repositoryGroupId')
         self.repositoryId = currentRepository.get('repositoryId')
         self.setSpec = currentRepository.get('setSpec') or ''
+        self.metadataPrefix = currentRepository.get('metadataPrefix') or ''
 
     def resumptionAttributes(self):
         return {
@@ -94,6 +95,7 @@ class Record(RecordProtocol):
         self.repositoryGroupId = batch.repositoryGroupId
         self.repositoryId = batch.repositoryId
         self.setSpec = batch.setSpec
+        self.metadataPrefix = batch.metadataPrefix
         self.baseurl = batch.baseurl
         self.recordIdentifier = item.identifier
         self.identifier = "%s:%s" % (batch.repositoryGroupId, self.recordIdentifier)

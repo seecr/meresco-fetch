@@ -82,5 +82,6 @@ class OaiPmhDownloadTest(SeecrTestCase):
         dl = self.prepareDownload(repositories=[repo1])
         batch = dl.downloadBatch({})
         self.assertEquals({'repositoriesRemaining': [], 'resumptionToken': None}, batch.resumptionAttributes())
+        self.assertEquals('prefix', batch.metadataPrefix)
 
 

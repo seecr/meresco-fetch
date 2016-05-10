@@ -32,11 +32,11 @@ from traceback import print_exception
 from time import sleep
 from hashlib import md5
 
-
 from seecr.zulutime import ZuluTime
 
-from meresco.components.json import JsonDict
 from meresco.core import Observable
+
+from ._state import State
 
 
 class BatchProtocol(object):
@@ -68,7 +68,7 @@ class Harvester(Observable):
         self._statePath = statePath
         if not isdir(statePath):
             makedirs(statePath)
-        self._state = _State.load(filePath=join(self._statePath, 'state'))
+        self._state = State.load(filePath=join(self._statePath, 'state'))
         self._events = _Events(self._statePath)
         self._logWrite = (lambda aString: None) if log is None else log.write
         self._deleteAll = deleteAll
@@ -80,11 +80,11 @@ class Harvester(Observable):
 
         if self._deleteAll:
             return self._deleteAllRecords()
-
         if self._state.harvestingReady:
             self._deleteOldRecords()  # possibly still needs to be finished after crash
             if self._harvestIntervalElapsed():
                 self._state.clear()
+                self._state.save()
             else:
                 self._logWrite('Harvesting ready since {0}.\n'.format(self._state.datetime))
                 self._logWrite('Waiting until {0} seconds have passed.\n'.format(self._harvestInterval))
@@ -169,43 +169,6 @@ class Harvester(Observable):
     def _lastError(self):
         return open(join(self._statePath, "last_error")).read().strip()
 
-
-class _State(object):
-    def __init__(self, filePath):
-        self._filePath = filePath
-        self.clear()
-
-    def clear(self):
-        self.datetime = None
-        self.harvestingReady = False
-        self.error = None
-        self.resumptionAttributes = None
-        return self
-
-    @classmethod
-    def load(cls, filePath):
-        state = cls(filePath=filePath)
-        if isfile(filePath):
-            d = JsonDict.load(filePath)
-            state.datetime = d.get('datetime')
-            state.harvestingReady = d.get('harvestingReady', False)
-            state.error = d.get('error')
-            state.resumptionAttributes = d.get('resumptionAttributes')
-        return state
-
-    def save(self):
-        self.datetime = self.now().zulu()
-        JsonDict(
-            datetime=self.datetime,
-            harvestingReady=self.harvestingReady,
-            error=self.error,
-            resumptionAttributes=self.resumptionAttributes
-        ).dump(self._filePath)
-
-    def now(self):
-        return ZuluTime()
-
-
 class _Events(object):
     def __init__(self, stateDir):
         self._currentEventsPath = join(stateDir, 'current')
@@ -214,7 +177,6 @@ class _Events(object):
         self._harvestStarted = False
 
     def markEvent(self, identifier, uploadData=None, delete=False):
-        assert self._harvestStarted
         dataHash = '' if delete else self._makeHash(uploadData)
         open(self._currentEventsPath, 'a').write("%s\t%s\t%s\n" % (identifier, ('D' if delete else 'A'), dataHash))
 

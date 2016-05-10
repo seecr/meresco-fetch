@@ -33,6 +33,7 @@ from simplejson import load as jsonLoad
 from seecr.test import SeecrTestCase, CallTrace
 from seecr.zulutime import ZuluTime
 
+from meresco.components.json import JsonDict
 from meresco.fetch.harvester import Harvester, BatchProtocol, RecordProtocol
 
 
@@ -187,6 +188,23 @@ class HarvestTest(SeecrTestCase):
         self.assertEquals(['downloadBatch', 'deleteRecord'], self.observer.calledMethodNames())
         self.assertEquals({'identifier': 'id0'}, self.observer.calledMethods[-1].kwargs)
         self.assertEquals([], list(self.harvester._events.remainingAdds()))
+
+    def testDeleteOldIfHarvestingReady(self):
+        JsonDict({
+                'harvestingReady': True,
+                'datetime': '1976-11-08T12:34:56Z',
+                'resumptionAttributes': None,
+                'error': False
+            }).dump(join(self.tempdir, 'state'))
+        open(join(self.tempdir, 'current'), 'w').write("")
+        with open(join(self.tempdir, 'previous'), 'w') as f:
+            f.write("id:1\tA\tdatahash\n")
+            f.write("id:2\tA\tdatahash\n")
+        self._prepareHarvester()
+        self.harvester.harvest()
+        self.assertEquals(['deleteRecord', 'deleteRecord'], self.observer.calledMethodNames())
+        self.assertEquals({'identifier': 'id:1'}, self.observer.calledMethods[0].kwargs)
+        self.assertEquals({'identifier': 'id:2'}, self.observer.calledMethods[1].kwargs)
 
 
 class Batch(BatchProtocol):

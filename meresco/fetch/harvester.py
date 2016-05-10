@@ -2,7 +2,7 @@
 #
 # "Meresco Fetch" is a small framework to build simple, custom harvesters.
 #
-# Copyright (C) 2014-2015 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2016 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2015 Koninklijke Bibliotheek (KB) http://www.kb.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
@@ -32,10 +32,10 @@ from traceback import print_exception
 from time import sleep
 from hashlib import md5
 
-from simplejson import load as jsonLoad, dump as jsonSave
 
 from seecr.zulutime import ZuluTime
 
+from meresco.components.json import JsonDict
 from meresco.core import Observable
 
 
@@ -186,7 +186,7 @@ class _State(object):
     def load(cls, filePath):
         state = cls(filePath=filePath)
         if isfile(filePath):
-            d = jsonLoad(open(filePath))
+            d = JsonDict.load(filePath)
             state.datetime = d.get('datetime')
             state.harvestingReady = d.get('harvestingReady', False)
             state.error = d.get('error')
@@ -195,13 +195,12 @@ class _State(object):
 
     def save(self):
         self.datetime = self.now().zulu()
-        d = dict(
+        JsonDict(
             datetime=self.datetime,
             harvestingReady=self.harvestingReady,
             error=self.error,
-            resumptionAttributes=self.resumptionAttributes)
-        jsonSave(d, open(self._filePath + ".tmp", "w"))
-        rename(self._filePath + ".tmp", self._filePath)
+            resumptionAttributes=self.resumptionAttributes
+        ).dump(self._filePath)
 
     def now(self):
         return ZuluTime()

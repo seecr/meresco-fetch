@@ -38,6 +38,8 @@ from meresco.core import Observable
 
 from ._state import State
 
+class SkipRecordException(Exception):
+    pass
 
 class BatchProtocol(object):
     def __init__(self):
@@ -119,13 +121,17 @@ class Harvester(Observable):
                     self.do.deleteRecord(identifier=record.identifier)
                 self._events.markEvent(record.identifier, delete=True)
             elif record.mustAdd():
-                uploadData = self.call.convert(record=record)
-                if self._events.alreadyAdded(record.identifier, uploadData):
-                    unchanged += 1
-                else:
-                    self.call.uploadRecord(identifier=record.identifier, data=uploadData)
-                    added += 1
-                self._events.markEvent(record.identifier, uploadData)
+                try:
+                    uploadData = self.call.convert(record=record)
+                    if self._events.alreadyAdded(record.identifier, uploadData):
+                        unchanged += 1
+                    else:
+                        self.call.uploadRecord(identifier=record.identifier, data=uploadData)
+                        added += 1
+                    self._events.markEvent(record.identifier, uploadData)
+                except SkipRecordException:
+                    skipped += 1
+                    self._logWrite("Skipping record '%s'\n" % record.identifier)
             else:
                 skipped += 1
                 self._logWrite("Skipping record '%s'\n" % record.identifier)

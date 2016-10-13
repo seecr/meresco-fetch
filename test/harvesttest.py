@@ -34,7 +34,7 @@ from seecr.test import SeecrTestCase, CallTrace
 from seecr.zulutime import ZuluTime
 
 from meresco.components.json import JsonDict
-from meresco.fetch.harvester import Harvester, BatchProtocol, RecordProtocol
+from meresco.fetch.harvester import Harvester, BatchProtocol, RecordProtocol, SkipRecordException
 
 
 class HarvestTest(SeecrTestCase):
@@ -136,6 +136,25 @@ class HarvestTest(SeecrTestCase):
             'error': True}, persistedState)
         lastError = open(join(self.tempdir, 'last_error')).read()
         self.assertTrue('help!' in lastError, lastError)
+
+    def testSkipRecordException(self):
+        batch = Batch()
+        batch.records = [Record('id0', 'data0'), Record('id1', 'data1')]
+        batch.harvestingReady = True
+        self.observer.methods['downloadBatch'] = lambda **kwargs: batch
+        def convertRaises(record):
+            raise SkipRecordException()
+        self.observer.methods['convert'] = convertRaises
+        self.harvester.harvest()
+        self.assertEqual([
+            'Harvesting.', 
+            "Skipping record 'id0'",
+            "Skipping record 'id1'",
+            "0 added, 0 deleted, 0 unchanged, 2 skipped.",
+            "-",
+            "Finished harvesting.", 
+            ""], self.log.getvalue().split("\n"))
+
 
     def testUploadError(self):
         batch = Batch()

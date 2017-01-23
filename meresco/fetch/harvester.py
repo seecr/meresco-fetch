@@ -65,7 +65,7 @@ class RecordProtocol(object):
 
 
 class Harvester(Observable):
-    def __init__(self, statePath, log=None, name=None, deleteAll=False, harvestInterval=24*60*60, errorInterval=10):
+    def __init__(self, statePath, log=None, name=None, deleteAll=False, harvestInterval=24*60*60, errorInterval=10, incremental=False):
         Observable.__init__(self, name=name)
         self._statePath = statePath
         if not isdir(statePath):
@@ -76,6 +76,7 @@ class Harvester(Observable):
         self._deleteAll = deleteAll
         self._harvestInterval = harvestInterval
         self._errorInterval = errorInterval
+        self._incremental = incremental
 
     def harvest(self):
         self._waitAWhileAfterError()
@@ -85,8 +86,12 @@ class Harvester(Observable):
         if self._state.harvestingReady:
             self._deleteOldRecords()  # possibly still needs to be finished after crash
             if self._harvestIntervalElapsed():
-                self._state.clear()
-                self._state.save()
+                if not self._incremental:
+                    self._state.clear()
+                    self._state.save()
+                else:
+                    self._state.harvestingReady = False
+                    self._state.save()
             else:
                 self._logWrite('Harvesting ready since {0}.\n'.format(self._state.datetime))
                 self._logWrite('Waiting until {0} seconds have passed.\n'.format(self._harvestInterval))
@@ -94,9 +99,7 @@ class Harvester(Observable):
 
         self._logWrite('Harvesting.\n')
         self._events.markHarvestStart()
-        while True:
-            if self._state.harvestingReady:
-                break
+        while not self._state.harvestingReady:
             try:
                 batch = self.call.downloadBatch(resumptionAttributes=self._state.resumptionAttributes or dict())
                 self._processBatch(batch)

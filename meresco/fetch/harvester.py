@@ -153,7 +153,10 @@ class Harvester(Observable):
         for identifier in self._events.remainingAdds():
             self.do.deleteRecord(identifier=identifier)
             self._events.markEvent(identifier, delete=True)
+        self._state.clear()
+        self._state.save()
         self._events.markHarvestReady()
+
 
     def _harvestIntervalElapsed(self):
         return self._state.now().epoch - ZuluTime(self._state.datetime).epoch > self._harvestInterval

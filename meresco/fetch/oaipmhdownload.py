@@ -26,7 +26,7 @@
 
 from meresco.fetch.harvester import BatchProtocol, RecordProtocol
 
-from meresco.oai.tools.iterateoaipmh import OaiListRequest
+from meresco.oai.tools import OaiListRequest
 
 class OaiPmhDownload(object):
     def __init__(self, repositories, log, recordAllowedFilter=None):

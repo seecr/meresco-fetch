@@ -37,7 +37,6 @@ from unittest import main
 from harvesttest import HarvestTest
 from oaipmhdownloadtest import OaiPmhDownloadTest
 
-
 if __name__ == "__main__":
     main()
 

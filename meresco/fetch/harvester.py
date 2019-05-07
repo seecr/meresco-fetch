@@ -2,7 +2,7 @@
 #
 # "Meresco Fetch" is a small framework to build simple, custom harvesters.
 #
-# Copyright (C) 2014-2016 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2014-2016, 2019 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2014 Stichting Bibliotheek.nl (BNL) http://www.bibliotheek.nl
 # Copyright (C) 2015 Koninklijke Bibliotheek (KB) http://www.kb.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
@@ -65,7 +65,7 @@ class RecordProtocol(object):
 
 
 class Harvester(Observable):
-    def __init__(self, statePath, log=None, name=None, deleteAll=False, harvestInterval=24*60*60, errorInterval=10, incremental=False):
+    def __init__(self, statePath, log=None, name=None, deleteAll=False, harvestInterval=24*60*60, errorInterval=10):
         Observable.__init__(self, name=name)
         self._statePath = statePath
         if not isdir(statePath):
@@ -76,7 +76,6 @@ class Harvester(Observable):
         self._deleteAll = deleteAll
         self._harvestInterval = harvestInterval
         self._errorInterval = errorInterval
-        self._incremental = incremental
 
     def harvest(self):
         self._waitAWhileAfterError()
@@ -86,12 +85,8 @@ class Harvester(Observable):
         if self._state.harvestingReady:
             self._deleteOldRecords()  # possibly still needs to be finished after crash
             if self._harvestIntervalElapsed():
-                if not self._incremental:
-                    self._state.clear()
-                    self._state.save()
-                else:
-                    self._state.harvestingReady = False
-                    self._state.save()
+                self._state.clear()
+                self._state.save()
             else:
                 self._logWrite('Harvesting ready since {0}.\n'.format(self._state.datetime))
                 self._logWrite('Waiting until {0} seconds have passed.\n'.format(self._harvestInterval))

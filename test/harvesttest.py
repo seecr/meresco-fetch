@@ -4,7 +4,7 @@
 #
 # Copyright (C) 2015 Koninklijke Bibliotheek (KB) http://www.kb.nl
 # Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
-# Copyright (C) 2015-2016 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2015-2016, 2019 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2016 Drents Archief http://www.drentsarchief.nl
 #
 # This file is part of "Meresco Fetch"
@@ -25,7 +25,7 @@
 #
 ## end license ##
 
-from os.path import join
+from os.path import join, isfile
 from StringIO import StringIO
 
 from simplejson import load as jsonLoad
@@ -41,11 +41,11 @@ class HarvestTest(SeecrTestCase):
     def setUp(self):
         SeecrTestCase.setUp(self)
         self.log = StringIO()
-        self.observer = CallTrace('observer')
+        self.observer = CallTrace('observer', methods={'convert': (lambda record: str(record))})
         self._prepareHarvester()
 
     def _prepareHarvester(self, deleteAll=False):
-        self.harvester = Harvester(self.tempdir, log=self.log, deleteAll=deleteAll)
+        self.harvester = Harvester(self.tempdir, log=self.log, deleteAll=deleteAll, errorInterval=0.5)
         self.harvester._state.now = lambda: ZuluTime("1976-11-08T12:34:56Z")
         self.harvester.addObserver(self.observer)
         return self.harvester
@@ -55,7 +55,7 @@ class HarvestTest(SeecrTestCase):
         batch.harvestingReady = True
         self.observer.returnValues['downloadBatch'] = batch
         self.harvester.harvest()
-        self.assertEquals(['downloadBatch'], self.observer.calledMethodNames())
+        self.assertEquals(['downloadBatch', 'batchDone'], self.observer.calledMethodNames())
         self.assertEqual('Harvesting.\n0 added, 0 deleted, 0 unchanged, 0 skipped.\n-\nFinished harvesting.\n', self.log.getvalue())
 
     def testHarvestMoreThanOneBatch(self):
@@ -77,10 +77,10 @@ class HarvestTest(SeecrTestCase):
         self.observer.methods['downloadBatch'] = lambda **kwargs: batches.pop(0)
         self.observer.methods['convert'] =lambda record: 'converted.' + record.data
         self.harvester.harvest()
-        self.assertEquals(['downloadBatch', 'convert', 'uploadRecord', 'convert', 'uploadRecord', 'downloadBatch', 'convert', 'uploadRecord', 'deleteRecord'], self.observer.calledMethodNames())
-        lastDownloadBatchCall = self.observer.calledMethods[-4]
+        self.assertEquals(['downloadBatch', 'convert', 'uploadRecord', 'convert', 'uploadRecord', 'batchDone', 'downloadBatch', 'convert', 'uploadRecord', 'batchDone', 'deleteRecord'], self.observer.calledMethodNames())
+        lastDownloadBatchCall = self.observer.calledMethods[-5]
         self.assertEquals({'resumptionAttributes': {'key': 'value1'}}, lastDownloadBatchCall.kwargs)
-        lastUploadRecordCall = self.observer.calledMethods[-2]
+        lastUploadRecordCall = self.observer.calledMethods[-3]
         self.assertEquals({'identifier': 'id2', 'data': 'converted.data2'}, lastUploadRecordCall.kwargs)
         deleteRecordCall = self.observer.calledMethods[-1]
         self.assertEquals({'identifier': 'id9'}, deleteRecordCall.kwargs)
@@ -115,6 +115,22 @@ class HarvestTest(SeecrTestCase):
         lastError = open(join(self.tempdir, 'last_error')).read()
         self.assertTrue('help!' in lastError, lastError)
 
+        # and test that it's cleaned up after first succesful batch is processed
+        def downloadBatch(resumptionAttributes):
+            batch = Batch()
+            batch.records = [Record('identifier0', 'data0')]
+            batch.quitForSleep = True
+            return batch
+        self.observer.methods['downloadBatch'] = downloadBatch
+        self.harvester.harvest()
+        persistedState = jsonLoad(open(join(self.tempdir, 'state')))
+        self.assertEquals({
+            'harvestingReady': False,
+            'datetime': '1976-11-08T12:34:56Z',
+            'resumptionAttributes': {},
+            'error': False}, persistedState)
+        self.assertFalse(isfile(join(self.tempdir, 'last_error')))
+
     def testConvertError(self):
         batch = Batch()
         batch.records = [Record('id0', 'data0'), Record('id1', 'data1')]
@@ -147,12 +163,12 @@ class HarvestTest(SeecrTestCase):
         self.observer.methods['convert'] = convertRaises
         self.harvester.harvest()
         self.assertEqual([
-            'Harvesting.', 
+            'Harvesting.',
             "Skipping record 'id0'",
             "Skipping record 'id1'",
             "0 added, 0 deleted, 0 unchanged, 2 skipped.",
             "-",
-            "Finished harvesting.", 
+            "Finished harvesting.",
             ""], self.log.getvalue().split("\n"))
 
 
@@ -190,8 +206,8 @@ class HarvestTest(SeecrTestCase):
         self.observer.methods['downloadBatch'] = lambda **kwargs: batch
         self.observer.methods['convert'] =lambda record: 'converted.' + record.data
         self.harvester.harvest()
-        self.assertEquals(['downloadBatch', 'convert', 'convert', 'uploadRecord'], self.observer.calledMethodNames())
-        self.assertEquals({'identifier': 'id1', 'data': 'converted.data1.changed'}, self.observer.calledMethods[-1].kwargs)
+        self.assertEquals(['downloadBatch', 'convert', 'convert', 'uploadRecord', 'batchDone'], self.observer.calledMethodNames())
+        self.assertEquals({'identifier': 'id1', 'data': 'converted.data1.changed'}, self.observer.calledMethods[-2].kwargs)
         self.assertEquals(['id0', 'id1'], list(self.harvester._events.remainingAdds()))
 
     def testDeleteOnlyWhenNotAlready(self):
@@ -204,8 +220,8 @@ class HarvestTest(SeecrTestCase):
         batch.harvestingReady = True
         self.observer.methods['downloadBatch'] = lambda **kwargs: batch
         self.harvester.harvest()
-        self.assertEquals(['downloadBatch', 'deleteRecord'], self.observer.calledMethodNames())
-        self.assertEquals({'identifier': 'id0'}, self.observer.calledMethods[-1].kwargs)
+        self.assertEquals(['downloadBatch', 'deleteRecord', 'batchDone'], self.observer.calledMethodNames())
+        self.assertEquals({'identifier': 'id0'}, self.observer.calledMethods[-2].kwargs)
         self.assertEquals([], list(self.harvester._events.remainingAdds()))
 
     def testDeleteOldIfHarvestingReady(self):
@@ -224,6 +240,16 @@ class HarvestTest(SeecrTestCase):
         self.assertEquals(['deleteRecord', 'deleteRecord'], self.observer.calledMethodNames())
         self.assertEquals({'identifier': 'id:1'}, self.observer.calledMethods[0].kwargs)
         self.assertEquals({'identifier': 'id:2'}, self.observer.calledMethods[1].kwargs)
+
+    def testQuitForSleep(self):
+        batch = Batch()
+        batch.harvestingReady = False
+        batch.quitForSleep = True
+        self.observer.returnValues['downloadBatch'] = batch
+        self.harvester.harvest()
+        self.assertEquals(['downloadBatch', 'batchDone'], self.observer.calledMethodNames())
+        # Note: previous line implicitly asserts that deleteRecord was not invoked, as _deleteOldRecords should not be executed when only quiting for sleep.
+        self.assertEqual('Harvesting.\n0 added, 0 deleted, 0 unchanged, 0 skipped.\n-\nQuiting for sleep.\n', self.log.getvalue())
 
 
 class Batch(BatchProtocol):
@@ -251,4 +277,3 @@ class Record(RecordProtocol):
 
     def __repr__(self):
         return "%s(%s, %s)" % (self.__class__.__name__, repr(self.identifier), repr(self.data))
-

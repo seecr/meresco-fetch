@@ -2,10 +2,7 @@
 #
 # "Meresco Fetch" is a small framework to build simple, custom harvesters.
 #
-# Copyright (C) 2015 Koninklijke Bibliotheek (KB) http://www.kb.nl
-# Copyright (C) 2015 Netherlands Institute for Sound and Vision http://instituut.beeldengeluid.nl/
-# Copyright (C) 2015-2016, 2019 Seecr (Seek You Too B.V.) http://seecr.nl
-# Copyright (C) 2016 Drents Archief http://www.drentsarchief.nl
+# Copyright (C) 2019 Seecr (Seek You Too B.V.) http://seecr.nl
 #
 # This file is part of "Meresco Fetch"
 #
@@ -25,7 +22,10 @@
 #
 ## end license ##
 
-from harvester import Harvester, SkipRecordException
-from upload import Upload
-from oaipmhdownload import OaiPmhDownload
-from onbatchdone import OnBatchDone
+
+class OnBatchDone(object):
+    def __init__(self, f):
+        self.f = f
+
+    def batchDone(self, batch):
+        self._f(batch)

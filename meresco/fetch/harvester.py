@@ -25,7 +25,7 @@
 #
 ## end license ##
 
-from os import rename, makedirs
+from os import rename, makedirs, remove
 from os.path import join, isdir, isfile
 from sys import exc_info
 from traceback import print_exception
@@ -38,13 +38,16 @@ from meresco.core import Observable
 
 from ._state import State
 
+
 class SkipRecordException(Exception):
     pass
+
 
 class BatchProtocol(object):
     def __init__(self):
         self.records = []
         self.harvestingReady = False
+        self.quitForSleep = False
 
     def resumptionAttributes(self):
         return 'a structure that can be saved as value in the JSON state file, signifying how next batch can be retrieved'
@@ -98,6 +101,9 @@ class Harvester(Observable):
             try:
                 batch = self.call.downloadBatch(resumptionAttributes=self._state.resumptionAttributes or dict())
                 self._processBatch(batch)
+                if getattr(batch, 'quitForSleep', False):
+                    self._logWrite('Quiting for sleep.\n')
+                    return
             except (SystemExit, KeyboardInterrupt, AssertionError):
                 raise
             except Exception:
@@ -136,7 +142,10 @@ class Harvester(Observable):
         self._logWrite("%d added, %d deleted, %d unchanged, %d skipped.\n-\n" % (added, deleted, unchanged, skipped))
         self._state.resumptionAttributes = batch.resumptionAttributes()
         self._state.harvestingReady = batch.harvestingReady
+        self._state.error = False
         self._state.save()
+        self._clearError()
+        self.do.batchDone(batch)
 
     def _deleteOldRecords(self):
         for identifier in self._events.toBeDeleted():
@@ -149,9 +158,10 @@ class Harvester(Observable):
             self.do.deleteRecord(identifier=identifier)
             self._events.markEvent(identifier, delete=True)
         self._state.clear()
+        self._state.error = False
         self._state.save()
+        self._clearError()
         self._events.markHarvestReady()
-
 
     def _harvestIntervalElapsed(self):
         return self._state.now().epoch - ZuluTime(self._state.datetime).epoch > self._harvestInterval
@@ -165,6 +175,13 @@ class Harvester(Observable):
         if not record is None:
             open(join(self._statePath, "last_error.record"), 'w').write(record.asString())
 
+    def _clearError(self):
+        lastErrorF = join(self._statePath, "last_error")
+        lastErrorRecordF = join(self._statePath, "last_error.record")
+        for f in [lastErrorF, lastErrorRecordF]:
+            if isfile(f):
+                remove(f)
+
     def _waitAWhileAfterError(self):
         if self._state.error:
             self._logWrite('Harvesting in error state since {0}: {1}.\n'.format(self._state.datetime, self._lastError()))
@@ -175,6 +192,7 @@ class Harvester(Observable):
 
     def _lastError(self):
         return open(join(self._statePath, "last_error")).read().strip()
+
 
 class _Events(object):
     def __init__(self, stateDir):

@@ -28,4 +28,4 @@ class OnBatchDone(object):
         self.f = f
 
     def batchDone(self, batch):
-        self._f(batch)
+        self.f(batch)

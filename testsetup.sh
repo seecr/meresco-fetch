@@ -31,11 +31,7 @@ rm -rf tmp build
 mydir=$(cd $(dirname $0); pwd)
 source /usr/share/seecr-tools/functions.d/test
 
-pyversions="2.6"
-if distro_is_debian; then
-    pyversions="2.7"
-fi
-
+pyversions="2.7"
 VERSION="x.y.z"
 
 for pyversion in $pyversions; do

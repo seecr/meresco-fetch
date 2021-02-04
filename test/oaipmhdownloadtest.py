@@ -3,7 +3,11 @@
 # "Meresco Fetch" is a small framework to build simple, custom harvesters.
 #
 # Copyright (C) 2016 Drents Archief http://www.drentsarchief.nl
-# Copyright (C) 2016 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2016, 2021 Seecr (Seek You Too B.V.) https://seecr.nl
+# Copyright (C) 2021 Data Archiving and Network Services https://dans.knaw.nl
+# Copyright (C) 2021 SURF https://www.surf.nl
+# Copyright (C) 2021 Stichting Kennisnet https://www.kennisnet.nl
+# Copyright (C) 2021 The Netherlands Institute for Sound and Vision https://beeldengeluid.nl
 #
 # This file is part of "Meresco Fetch"
 #

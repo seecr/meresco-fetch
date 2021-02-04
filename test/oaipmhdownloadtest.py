@@ -26,7 +26,7 @@
 from seecr.test import SeecrTestCase, CallTrace
 
 from meresco.fetch.oaipmhdownload import OaiPmhDownload
-from StringIO import StringIO
+from io import StringIO
 
 class OaiPmhDownloadTest(SeecrTestCase):
     def setUp(self):
@@ -52,7 +52,7 @@ class OaiPmhDownloadTest(SeecrTestCase):
     def testNoRepositories(self):
         dl = self.prepareDownload(repositories=[])
         dl.downloadBatch({})
-        self.assertEquals([], self.oaiListRequest.calledMethodNames())
+        self.assertEqual([], self.oaiListRequest.calledMethodNames())
 
     def testOneRepository(self):
         repo1 = {
@@ -62,14 +62,14 @@ class OaiPmhDownloadTest(SeecrTestCase):
         }
         dl = self.prepareDownload(repositories=[repo1])
         batch = dl.downloadBatch({})
-        self.assertEquals(['create', 'buildUrl', 'retrieveBatch'], self.oaiListRequest.calledMethodNames())
-        self.assertEquals({'baseurl': 'http://example.org/oai', 'metadataPrefix': 'prefix', 'set': None}, self.oaiListRequest.calledMethods[0].kwargs)
-        self.assertEquals({'repositoriesRemaining': [repo1], 'resumptionToken': 'continueHere'}, batch.resumptionAttributes())
-        self.assertEquals(["group:identifier"], [r.identifier for r in batch.records])
+        self.assertEqual(['create', 'buildUrl', 'retrieveBatch'], self.oaiListRequest.calledMethodNames())
+        self.assertEqual({'baseurl': 'http://example.org/oai', 'metadataPrefix': 'prefix', 'set': None}, self.oaiListRequest.calledMethods[0].kwargs)
+        self.assertEqual({'repositoriesRemaining': [repo1], 'resumptionToken': 'continueHere'}, batch.resumptionAttributes())
+        self.assertEqual(["group:identifier"], [r.identifier for r in batch.records])
         self.oaiListRequest.calledMethods.reset()
         batch = dl.downloadBatch(batch.resumptionAttributes())
-        self.assertEquals(['create', 'buildUrl', 'retrieveBatch'], self.oaiListRequest.calledMethodNames())
-        self.assertEquals({'baseurl': 'http://example.org/oai', 'resumptionToken':'continueHere'}, self.oaiListRequest.calledMethods[0].kwargs)
+        self.assertEqual(['create', 'buildUrl', 'retrieveBatch'], self.oaiListRequest.calledMethodNames())
+        self.assertEqual({'baseurl': 'http://example.org/oai', 'resumptionToken':'continueHere'}, self.oaiListRequest.calledMethods[0].kwargs)
 
 
     def testOneRepositoryFinishing(self):
@@ -81,7 +81,7 @@ class OaiPmhDownloadTest(SeecrTestCase):
         }
         dl = self.prepareDownload(repositories=[repo1])
         batch = dl.downloadBatch({})
-        self.assertEquals({'repositoriesRemaining': [], 'resumptionToken': None}, batch.resumptionAttributes())
-        self.assertEquals('prefix', batch.metadataPrefix)
+        self.assertEqual({'repositoriesRemaining': [], 'resumptionToken': None}, batch.resumptionAttributes())
+        self.assertEqual('prefix', batch.metadataPrefix)
 
 

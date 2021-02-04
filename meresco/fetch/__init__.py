@@ -25,7 +25,7 @@
 #
 ## end license ##
 
-from harvester import Harvester, SkipRecordException
-from upload import Upload
-from oaipmhdownload import OaiPmhDownload
-from onbatchdone import OnBatchDone
+from .harvester import Harvester, SkipRecordException
+from .upload import Upload
+from .oaipmhdownload import OaiPmhDownload
+from .onbatchdone import OnBatchDone

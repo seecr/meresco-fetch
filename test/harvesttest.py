@@ -26,7 +26,7 @@
 ## end license ##
 
 from os.path import join, isfile
-from StringIO import StringIO
+from io import StringIO
 
 from simplejson import load as jsonLoad
 
@@ -50,12 +50,19 @@ class HarvestTest(SeecrTestCase):
         self.harvester.addObserver(self.observer)
         return self.harvester
 
+    def _lastError(self):
+        with open(join(self.tempdir, 'last_error')) as fp:
+            return fp.read()
+    def _state(self):
+        with open(join(self.tempdir, 'state')) as fp:
+            return jsonLoad(fp)
+
     def testHarvestNoRecords(self):
         batch = Batch()
         batch.harvestingReady = True
         self.observer.returnValues['downloadBatch'] = batch
         self.harvester.harvest()
-        self.assertEquals(['downloadBatch', 'batchDone'], self.observer.calledMethodNames())
+        self.assertEqual(['downloadBatch', 'batchDone'], self.observer.calledMethodNames())
         self.assertEqual('Harvesting.\n0 added, 0 deleted, 0 unchanged, 0 skipped.\n-\nFinished harvesting.\n', self.log.getvalue())
 
     def testHarvestMoreThanOneBatch(self):
@@ -64,7 +71,7 @@ class HarvestTest(SeecrTestCase):
         self.harvester._events.markEvent(identifier='id1', uploadData='data1')
         self.harvester._events.markEvent(identifier='id9', uploadData='data9')
         self.harvester._events.markHarvestReady()
-        self.assertEquals(['id0', 'id1', 'id9'], list(self.harvester._events.remainingAdds()))
+        self.assertEqual(['id0', 'id1', 'id9'], list(self.harvester._events.remainingAdds()))
         batches = []
         batch = Batch()
         batch.records = [Record('id0', 'data0'), Record('id1', 'data1')]
@@ -77,14 +84,14 @@ class HarvestTest(SeecrTestCase):
         self.observer.methods['downloadBatch'] = lambda **kwargs: batches.pop(0)
         self.observer.methods['convert'] =lambda record: 'converted.' + record.data
         self.harvester.harvest()
-        self.assertEquals(['downloadBatch', 'convert', 'uploadRecord', 'convert', 'uploadRecord', 'batchDone', 'downloadBatch', 'convert', 'uploadRecord', 'batchDone', 'deleteRecord'], self.observer.calledMethodNames())
+        self.assertEqual(['downloadBatch', 'convert', 'uploadRecord', 'convert', 'uploadRecord', 'batchDone', 'downloadBatch', 'convert', 'uploadRecord', 'batchDone', 'deleteRecord'], self.observer.calledMethodNames())
         lastDownloadBatchCall = self.observer.calledMethods[-5]
-        self.assertEquals({'resumptionAttributes': {'key': 'value1'}}, lastDownloadBatchCall.kwargs)
+        self.assertEqual({'resumptionAttributes': {'key': 'value1'}}, lastDownloadBatchCall.kwargs)
         lastUploadRecordCall = self.observer.calledMethods[-3]
-        self.assertEquals({'identifier': 'id2', 'data': 'converted.data2'}, lastUploadRecordCall.kwargs)
+        self.assertEqual({'identifier': 'id2', 'data': 'converted.data2'}, lastUploadRecordCall.kwargs)
         deleteRecordCall = self.observer.calledMethods[-1]
-        self.assertEquals({'identifier': 'id9'}, deleteRecordCall.kwargs)
-        self.assertEquals(['id0', 'id1', 'id2'], list(self.harvester._events.remainingAdds()))
+        self.assertEqual({'identifier': 'id9'}, deleteRecordCall.kwargs)
+        self.assertEqual(['id0', 'id1', 'id2'], list(self.harvester._events.remainingAdds()))
 
     def testDeleteAll(self):
         self.harvester._events.markHarvestStart()
@@ -92,10 +99,10 @@ class HarvestTest(SeecrTestCase):
         self.harvester._events.markEvent(identifier='id1', uploadData='data1')
         self.harvester._events.markEvent(identifier='id9', uploadData='data9')
         self.harvester._events.markHarvestReady()
-        self.assertEquals(['id0', 'id1', 'id9'], list(self.harvester._events.remainingAdds()))
+        self.assertEqual(['id0', 'id1', 'id9'], list(self.harvester._events.remainingAdds()))
         self._prepareHarvester(deleteAll=True).harvest()
-        self.assertEquals(['deleteRecord'] * 3, self.observer.calledMethodNames())
-        self.assertEquals([], list(self.harvester._events.remainingAdds()))
+        self.assertEqual(['deleteRecord'] * 3, self.observer.calledMethodNames())
+        self.assertEqual([], list(self.harvester._events.remainingAdds()))
 
     def testDownloadError(self):
         def downloadBatchRaises(resumptionAttributes):
@@ -106,13 +113,14 @@ class HarvestTest(SeecrTestCase):
             self.fail()
         except IOError:
             pass
-        persistedState = jsonLoad(open(join(self.tempdir, 'state')))
-        self.assertEquals({
+        persistedState = self._state()
+        self.assertEqual({
             'harvestingReady': False,
             'datetime': '1976-11-08T12:34:56Z',
             'resumptionAttributes': None,
             'error': True}, persistedState)
-        lastError = open(join(self.tempdir, 'last_error')).read()
+
+        lastError = self._lastError()
         self.assertTrue('help!' in lastError, lastError)
 
         # and test that it's cleaned up after first succesful batch is processed
@@ -123,8 +131,8 @@ class HarvestTest(SeecrTestCase):
             return batch
         self.observer.methods['downloadBatch'] = downloadBatch
         self.harvester.harvest()
-        persistedState = jsonLoad(open(join(self.tempdir, 'state')))
-        self.assertEquals({
+        persistedState = self._state()
+        self.assertEqual({
             'harvestingReady': False,
             'datetime': '1976-11-08T12:34:56Z',
             'resumptionAttributes': {},
@@ -144,13 +152,13 @@ class HarvestTest(SeecrTestCase):
             self.fail()
         except RuntimeError:
             pass
-        persistedState = jsonLoad(open(join(self.tempdir, 'state')))
-        self.assertEquals({
+        persistedState = self._state()
+        self.assertEqual({
             'harvestingReady': False,
             'datetime': '1976-11-08T12:34:56Z',
             'resumptionAttributes': None,
             'error': True}, persistedState)
-        lastError = open(join(self.tempdir, 'last_error')).read()
+        lastError = self._lastError()
         self.assertTrue('help!' in lastError, lastError)
 
     def testSkipRecordException(self):
@@ -186,13 +194,13 @@ class HarvestTest(SeecrTestCase):
             self.fail()
         except RuntimeError:
             pass
-        persistedState = jsonLoad(open(join(self.tempdir, 'state')))
-        self.assertEquals({
+        persistedState = self._state()
+        self.assertEqual({
             'harvestingReady': False,
             'datetime': '1976-11-08T12:34:56Z',
             'resumptionAttributes': None,
             'error': True}, persistedState)
-        lastError = open(join(self.tempdir, 'last_error')).read()
+        lastError = self._lastError()
         self.assertTrue('help!' in lastError, lastError)
 
     def testOnlyUploadUpdates(self):
@@ -206,9 +214,9 @@ class HarvestTest(SeecrTestCase):
         self.observer.methods['downloadBatch'] = lambda **kwargs: batch
         self.observer.methods['convert'] =lambda record: 'converted.' + record.data
         self.harvester.harvest()
-        self.assertEquals(['downloadBatch', 'convert', 'convert', 'uploadRecord', 'batchDone'], self.observer.calledMethodNames())
-        self.assertEquals({'identifier': 'id1', 'data': 'converted.data1.changed'}, self.observer.calledMethods[-2].kwargs)
-        self.assertEquals(['id0', 'id1'], list(self.harvester._events.remainingAdds()))
+        self.assertEqual(['downloadBatch', 'convert', 'convert', 'uploadRecord', 'batchDone'], self.observer.calledMethodNames())
+        self.assertEqual({'identifier': 'id1', 'data': 'converted.data1.changed'}, self.observer.calledMethods[-2].kwargs)
+        self.assertEqual(['id0', 'id1'], list(self.harvester._events.remainingAdds()))
 
     def testDeleteOnlyWhenNotAlready(self):
         self.harvester._events.markHarvestStart()
@@ -220,9 +228,9 @@ class HarvestTest(SeecrTestCase):
         batch.harvestingReady = True
         self.observer.methods['downloadBatch'] = lambda **kwargs: batch
         self.harvester.harvest()
-        self.assertEquals(['downloadBatch', 'deleteRecord', 'batchDone'], self.observer.calledMethodNames())
-        self.assertEquals({'identifier': 'id0'}, self.observer.calledMethods[-2].kwargs)
-        self.assertEquals([], list(self.harvester._events.remainingAdds()))
+        self.assertEqual(['downloadBatch', 'deleteRecord', 'batchDone'], self.observer.calledMethodNames())
+        self.assertEqual({'identifier': 'id0'}, self.observer.calledMethods[-2].kwargs)
+        self.assertEqual([], list(self.harvester._events.remainingAdds()))
 
     def testDeleteOldIfHarvestingReady(self):
         JsonDict({
@@ -231,15 +239,16 @@ class HarvestTest(SeecrTestCase):
                 'resumptionAttributes': None,
                 'error': False
             }).dump(join(self.tempdir, 'state'))
-        open(join(self.tempdir, 'current'), 'w').write("")
+        with open(join(self.tempdir, 'current'), 'w') as fp:
+            fp.write("")
         with open(join(self.tempdir, 'previous'), 'w') as f:
             f.write("id:1\tA\tdatahash\n")
             f.write("id:2\tA\tdatahash\n")
         self._prepareHarvester()
         self.harvester.harvest()
-        self.assertEquals(['deleteRecord', 'deleteRecord'], self.observer.calledMethodNames())
-        self.assertEquals({'identifier': 'id:1'}, self.observer.calledMethods[0].kwargs)
-        self.assertEquals({'identifier': 'id:2'}, self.observer.calledMethods[1].kwargs)
+        self.assertEqual(['deleteRecord', 'deleteRecord'], self.observer.calledMethodNames())
+        self.assertEqual({'identifier': 'id:1'}, self.observer.calledMethods[0].kwargs)
+        self.assertEqual({'identifier': 'id:2'}, self.observer.calledMethods[1].kwargs)
 
     def testQuitForSleep(self):
         batch = Batch()
@@ -247,7 +256,7 @@ class HarvestTest(SeecrTestCase):
         batch.quitForSleep = True
         self.observer.returnValues['downloadBatch'] = batch
         self.harvester.harvest()
-        self.assertEquals(['downloadBatch', 'batchDone'], self.observer.calledMethodNames())
+        self.assertEqual(['downloadBatch', 'batchDone'], self.observer.calledMethodNames())
         # Note: previous line implicitly asserts that deleteRecord was not invoked, as _deleteOldRecords should not be executed when only quiting for sleep.
         self.assertEqual('Harvesting.\n0 added, 0 deleted, 0 unchanged, 0 skipped.\n-\nQuiting for sleep.\n', self.log.getvalue())
 

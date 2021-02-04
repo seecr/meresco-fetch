@@ -25,7 +25,7 @@
 #
 ## end license ##
 
-from urlparse import urlsplit
+from urllib.parse import urlsplit
 
 from weightless.core import consume
 from meresco.components.sru import SruUpdateClient

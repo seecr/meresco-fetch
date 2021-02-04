@@ -173,7 +173,8 @@ class Harvester(Observable):
         with open(join(self._statePath, "last_error"), "w") as fp:
             print_exception(exc_type, exc_value, exc_traceback, file=fp)
         if not record is None:
-            open(join(self._statePath, "last_error.record"), 'w').write(record.asString())
+            with open(join(self._statePath, "last_error.record"), 'w') as fp:
+                fp.write(record.asString())
 
     def _clearError(self):
         lastErrorF = join(self._statePath, "last_error")
@@ -191,7 +192,8 @@ class Harvester(Observable):
                 sleep(waitTime)  # Note!!
 
     def _lastError(self):
-        return open(join(self._statePath, "last_error")).read().strip()
+        with open(join(self._statePath, "last_error")) as fp:
+            return fp.read().strip()
 
 
 class _Events(object):
@@ -203,13 +205,12 @@ class _Events(object):
 
     def markEvent(self, identifier, uploadData=None, delete=False):
         dataHash = '' if delete else self._makeHash(uploadData)
-        open(self._currentEventsPath, 'a').write("%s\t%s\t%s\n" % (identifier, ('D' if delete else 'A'), dataHash))
+        with open(self._currentEventsPath, 'a') as fp:
+            fp.write("%s\t%s\t%s\n" % (identifier, ('D' if delete else 'A'), dataHash))
 
     def alreadyDeleted(self, identifier):
         action = self._previous.get(identifier)
-        if action:
-            return action[0] == 'D'
-        return False
+        return action[0] == 'D' if action else False
 
     def alreadyAdded(self, identifier, uploadData):
         previousHash = None
@@ -224,7 +225,7 @@ class _Events(object):
         if not isfile(self._currentEventsPath):
             return
         currentIdentifiers = set(self._readEvents(self._currentEventsPath).keys())
-        for identifier, action in sorted(self._previous.iteritems()):
+        for identifier, action in sorted(self._previous.items()):
             if identifier in currentIdentifiers:
                 continue
             if action[0] != 'D':
@@ -232,7 +233,7 @@ class _Events(object):
 
     def remainingAdds(self):
         current = self._readEvents(self._currentEventsPath)
-        for identifier, action in (sorted(self._previous.iteritems()) + sorted(current.iteritems())):
+        for identifier, action in (sorted(self._previous.items()) + sorted(current.items())):
             if action[0] == 'A':
                 currentIdState = current.get(identifier)
                 if currentIdState and currentIdState[0] == 'D':
@@ -251,7 +252,7 @@ class _Events(object):
         self._harvestStarted = False
 
     def _makeHash(self, data):
-        return md5(data).hexdigest()
+        return md5(data.encode()).hexdigest()
 
     def _readPrevious(self):
         self._previous = self._readEvents(self._previousEventsPath)
@@ -259,11 +260,12 @@ class _Events(object):
     def _readEvents(self, eventsFilePath):
         if not isfile(eventsFilePath):
             return {}
-        return dict(
-            headTail(split(line.strip(), '\t', 3))
-            for line in open(eventsFilePath).read().strip().split("\n")
-            if line.strip()
-        )
+        with open(eventsFilePath) as fp:
+            return dict(
+                headTail(split(line.strip(), '\t', 3))
+                for line in fp.read().strip().split("\n")
+                if line.strip()
+            )
 
 
 def split(line, separator, expectedNumber):
